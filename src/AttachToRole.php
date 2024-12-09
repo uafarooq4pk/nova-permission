@@ -10,6 +10,7 @@ use Laravel\Nova\Actions\Action;
 use Laravel\Nova\Fields\ActionFields;
 use Laravel\Nova\Fields\Select;
 use Laravel\Nova\Http\Requests\NovaRequest;
+use Spatie\Permission\PermissionRegistrar;
 
 class AttachToRole extends Action
 {
@@ -24,7 +25,16 @@ class AttachToRole extends Action
      */
     public function handle(ActionFields $fields, Collection $models)
     {
-        $role = Role::getModel()->find($fields['role']);
+        // Get the Role class from the PermissionRegistrar
+        $roleClass = app(PermissionRegistrar::class)->getRoleClass();
+
+        // Use the Role class to query the database
+        $role = $roleClass::find($fields['role']);
+
+        if (!$role) {
+            throw new \Exception("Role not found.");
+        }
+
         foreach ($models as $model) {
             $role->givePermissionTo($model);
         }
@@ -39,8 +49,9 @@ class AttachToRole extends Action
     public function fields(NovaRequest $request)
     {
         return [
-            Select::make('Role')->options(Role::getModel()->get()->pluck('name',
-                'id')->toArray())->displayUsingLabels(),
+            Select::make('Role')->options(
+                app(Role::getModel())->newQuery()->pluck('name', 'id')->toArray()
+            )->displayUsingLabels(),
         ];
     }
 }
